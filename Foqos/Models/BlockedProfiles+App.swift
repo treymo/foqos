@@ -117,7 +117,8 @@ extension BlockedProfiles {
     physicalUnblockItems: [PhysicalUnblockItem]?? = nil,
     schedule: BlockedProfileSchedule? = nil,
     disableBackgroundStops: Bool? = nil,
-    enableEmergencyUnblock: Bool? = nil
+    enableEmergencyUnblock: Bool? = nil,
+    enableAppCountdown: Bool? = nil
   ) throws -> BlockedProfiles {
     if let newName = name {
       profile.name = newName
@@ -223,6 +224,10 @@ extension BlockedProfiles {
       profile.enableEmergencyUnblock = newEnableEmergencyUnblock
     }
 
+    if let newEnableAppCountdown = enableAppCountdown {
+      profile.enableAppCountdown = newEnableAppCountdown
+    }
+
     if let physicalUnblockItems {
       profile.physicalUnblockItems = PhysicalUnblockItem.normalizedItems(physicalUnblockItems)
     }
@@ -299,7 +304,8 @@ extension BlockedProfiles {
       physicalUnblockItems: profile.physicalUnblockItems,
       schedule: profile.schedule,
       disableBackgroundStops: profile.disableBackgroundStops,
-      enableEmergencyUnblock: profile.enableEmergencyUnblock
+      enableEmergencyUnblock: profile.enableEmergencyUnblock,
+      enableAppCountdown: profile.enableAppCountdown
     )
   }
 
@@ -357,7 +363,8 @@ extension BlockedProfiles {
     physicalUnblockItems: [PhysicalUnblockItem]? = nil,
     schedule: BlockedProfileSchedule? = nil,
     disableBackgroundStops: Bool = false,
-    enableEmergencyUnblock: Bool = true
+    enableEmergencyUnblock: Bool = true,
+    enableAppCountdown: Bool = false
   ) throws -> BlockedProfiles {
     let profileOrder = getNextOrder(in: context)
 
@@ -384,7 +391,8 @@ extension BlockedProfiles {
       domains: domains,
       physicalUnblockItems: physicalUnblockItems,
       disableBackgroundStops: disableBackgroundStops,
-      enableEmergencyUnblock: enableEmergencyUnblock
+      enableEmergencyUnblock: enableEmergencyUnblock,
+      enableAppCountdown: enableAppCountdown
     )
 
     if let schedule = schedule {
@@ -428,7 +436,8 @@ extension BlockedProfiles {
       domains: source.domains,
       physicalUnblockItems: source.physicalUnblockItems,
       schedule: source.schedule,
-      enableEmergencyUnblock: source.enableEmergencyUnblock
+      enableEmergencyUnblock: source.enableEmergencyUnblock,
+      enableAppCountdown: source.enableAppCountdown
     )
 
     context.insert(cloned)

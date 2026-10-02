@@ -5,7 +5,7 @@ import XCTest
 @testable import foqos
 
 final class ModelStoreCompatibilityTests: ModelRegressionTestCase {
-  func testPreRefactorStoreOpensWithoutSchemaMigrationAndRetainsAllData() throws {
+  func testPreRefactorStoreUpgradesAndRetainsAllData() throws {
     let fixture = try XCTUnwrap(
       Bundle(for: Self.self).url(forResource: "pre-refactor-models", withExtension: "store"))
     let directory = URL.temporaryDirectory.appendingPathComponent(
@@ -14,13 +14,11 @@ final class ModelStoreCompatibilityTests: ModelRegressionTestCase {
     defer { try? FileManager.default.removeItem(at: directory) }
     let url = directory.appendingPathComponent("models.store")
     try FileManager.default.copyItem(at: fixture, to: url)
-    let originalHashes = try modelHashes(at: url)
+    let originalSessionHash = try XCTUnwrap(modelHashes(at: url)["BlockedProfileSession"])
 
     try openVerifyAndUpdateStore(at: url)
 
-    XCTAssertEqual(
-      try modelHashes(at: url), originalHashes,
-      "Moving methods must not change the persistent schema")
+    XCTAssertEqual(try modelHashes(at: url)["BlockedProfileSession"], originalSessionHash)
     // Open a new container, not just a new context, to verify a durable post-upgrade write.
     let reopened = try diskContainer(at: url)
     let reader = ModelContext(reopened)
@@ -35,7 +33,9 @@ final class ModelStoreCompatibilityTests: ModelRegressionTestCase {
     let reader = ModelContext(disk)
     let expected = configuredProfile()
     expected.physicalUnblockItems?[0].id = UUID(uuidString: "11111111-2222-3333-4444-555555555555")!
+    expected.enableAppCountdown = false
     let profile = try XCTUnwrap(BlockedProfiles.findProfile(byID: expected.id, in: reader))
+    XCTAssertFalse(profile.enableAppCountdown)
     assertSnapshotFields(BlockedProfiles.getSnapshot(for: profile), match: expected)
     XCTAssertEqual(profile.askForStartSettings, expected.askForStartSettings)
     XCTAssertEqual(profile.physicalUnblockNFCTagId, "legacy-nfc")

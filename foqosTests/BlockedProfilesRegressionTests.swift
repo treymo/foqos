@@ -11,6 +11,7 @@ final class BlockedProfilesRegressionTests: ModelRegressionTestCase {
     XCTAssertTrue(profile.shouldAskForStartSettings)
     XCTAssertTrue(profile.enableSafariBlocking)
     XCTAssertTrue(profile.enableEmergencyUnblock)
+    XCTAssertFalse(profile.enableAppCountdown)
     XCTAssertFalse(profile.enableBreaks)
     XCTAssertFalse(profile.allowMultipleBreaks)
     XCTAssertEqual(profile.breakTimeInMinutes, 15)
@@ -135,7 +136,7 @@ final class BlockedProfilesRegressionTests: ModelRegressionTestCase {
       enableSafariBlocking: false, enableAdultContentBlocking: true, domains: ["example.com"],
       physicalUnblockItems: configuredProfile().physicalUnblockItems,
       schedule: configuredProfile().schedule,
-      disableBackgroundStops: true, enableEmergencyUnblock: false)
+      disableBackgroundStops: true, enableEmergencyUnblock: false, enableAppCountdown: true)
     let fetched = try XCTUnwrap(BlockedProfiles.findProfile(byID: profile.id, in: freshContext()))
     assertSnapshotFields(
       try XCTUnwrap(SharedData.snapshot(for: profile.id.uuidString)), match: fetched)
@@ -144,10 +145,12 @@ final class BlockedProfilesRegressionTests: ModelRegressionTestCase {
     XCTAssertFalse(fetched.askForStartSettings)
     XCTAssertTrue(fetched.enableBlockAppInstallation)
     XCTAssertTrue(fetched.disableBackgroundStops)
+    XCTAssertTrue(fetched.enableAppCountdown)
     XCTAssertEqual(fetched.schedule, configuredProfile().schedule)
     XCTAssertEqual(fetched.order, 0)
     let second = try BlockedProfiles.createProfile(in: context, name: "Second")
     XCTAssertEqual(second.order, 1)
+    XCTAssertFalse(second.enableAppCountdown)
   }
 
   func testUpdatePersistsEverySuppliedSettingAndRefreshesSnapshot() throws {
@@ -167,7 +170,7 @@ final class BlockedProfilesRegressionTests: ModelRegressionTestCase {
       enableAllowMode: true, enableAllowModeDomains: true, enableSafariBlocking: false,
       enableAdultContentBlocking: true, enableMacSync: false, order: 5, domains: ["example.org"],
       physicalUnblockItems: .some(items), schedule: schedule, disableBackgroundStops: true,
-      enableEmergencyUnblock: false)
+      enableEmergencyUnblock: false, enableAppCountdown: true)
     XCTAssertTrue(updated === profile)
     let fetched = try XCTUnwrap(BlockedProfiles.findProfile(byID: profile.id, in: freshContext()))
     XCTAssertEqual(fetched.name, "Updated")
@@ -195,6 +198,7 @@ final class BlockedProfilesRegressionTests: ModelRegressionTestCase {
     XCTAssertEqual(fetched.schedule, schedule)
     XCTAssertTrue(fetched.disableBackgroundStops)
     XCTAssertFalse(fetched.enableEmergencyUnblock)
+    XCTAssertTrue(fetched.enableAppCountdown)
     XCTAssertGreaterThanOrEqual(fetched.updatedAt, before)
     assertSnapshotFields(
       try XCTUnwrap(SharedData.snapshot(for: profile.id.uuidString)), match: fetched)
@@ -205,6 +209,7 @@ final class BlockedProfilesRegressionTests: ModelRegressionTestCase {
     context.insert(profile)
     _ = try BlockedProfiles.updateProfile(profile, in: context, name: "Rename")
     XCTAssertEqual(profile.strategyData, Data([1, 2, 3]))
+    XCTAssertTrue(profile.enableAppCountdown)
     XCTAssertNotNil(profile.physicalUnblockItems)
     XCTAssertNotNil(profile.schedule)
     // Existing API semantics: omitted reminder arguments clear the reminder.
@@ -278,6 +283,7 @@ final class BlockedProfilesRegressionTests: ModelRegressionTestCase {
     XCTAssertEqual(clone.order, 10)
     XCTAssertTrue(clone.sessions.isEmpty)
     XCTAssertFalse(clone.askForStartSettings)
+    XCTAssertTrue(clone.enableAppCountdown)
     var expected = BlockedProfiles.getSnapshot(for: source)
     expected.id = clone.id
     expected.name = "Copy"
@@ -292,6 +298,16 @@ final class BlockedProfilesRegressionTests: ModelRegressionTestCase {
     source.blockingStrategyId = nil
     let fallback = try BlockedProfiles.cloneProfile(source, in: context, newName: "Legacy")
     XCTAssertEqual(fallback.blockingStrategyId, NFCBlockingStrategy.id)
+  }
+
+  func testSnapshotWithoutAppCountdownKeyDecodesAsNil() throws {
+    let encoded = try JSONEncoder().encode(BlockedProfiles.getSnapshot(for: configuredProfile()))
+    var json = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+    XCTAssertEqual(json.removeValue(forKey: "enableAppCountdown") as? Bool, true)
+    let decoded = try JSONDecoder().decode(
+      SharedData.ProfileSnapshot.self, from: JSONSerialization.data(withJSONObject: json))
+    XCTAssertNil(decoded.enableAppCountdown)
+    XCTAssertEqual(decoded.name, "Regression fixture")
   }
 
   func testDomainChangesDeduplicateAndPersistAndNilDomainsRemainNil() throws {

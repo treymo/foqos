@@ -61,7 +61,7 @@ class ModelRegressionTestCase: XCTestCase {
       schedule: BlockedProfileSchedule(
         days: [.monday, .friday], startHour: 9, startMinute: 15,
         endHour: 17, endMinute: 30, updatedAt: referenceDate),
-      disableBackgroundStops: true, enableEmergencyUnblock: false
+      disableBackgroundStops: true, enableEmergencyUnblock: false, enableAppCountdown: true
     )
   }
 
@@ -118,6 +118,8 @@ class ModelRegressionTestCase: XCTestCase {
       snapshot.disableBackgroundStops, profile.disableBackgroundStops, file: file, line: line)
     XCTAssertEqual(
       snapshot.enableEmergencyUnblock, profile.enableEmergencyUnblock, file: file, line: line)
+    XCTAssertEqual(
+      snapshot.enableAppCountdown, profile.enableAppCountdown, file: file, line: line)
     XCTAssertNil(snapshot.physicalUnblockNFCTagId, file: file, line: line)
     XCTAssertNil(snapshot.physicalUnblockQRCodeId, file: file, line: line)
   }

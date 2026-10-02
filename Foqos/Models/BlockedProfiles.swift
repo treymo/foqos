@@ -49,6 +49,8 @@ class BlockedProfiles {
 
   var enableEmergencyUnblock: Bool = true
 
+  var enableAppCountdown: Bool = false
+
   var customReminderMessage: String?
 
   @Relationship var sessions: [BlockedProfileSession] = []
@@ -80,7 +82,8 @@ class BlockedProfiles {
     physicalUnblockItems: [PhysicalUnblockItem]? = nil,
     schedule: BlockedProfileSchedule? = nil,
     disableBackgroundStops: Bool = false,
-    enableEmergencyUnblock: Bool = true
+    enableEmergencyUnblock: Bool = true,
+    enableAppCountdown: Bool = false
   ) {
     self.id = id
     self.name = name
@@ -113,5 +116,6 @@ class BlockedProfiles {
 
     self.disableBackgroundStops = disableBackgroundStops
     self.enableEmergencyUnblock = enableEmergencyUnblock
+    self.enableAppCountdown = enableAppCountdown
   }
 }
