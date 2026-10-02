@@ -61,6 +61,47 @@ class ShieldActionExtension: ShieldActionDelegate {
     let configuration = SoftUnblockStrategyData.decode(snapshot.strategyData)
     let durationInMinutes = max(configuration.accessDurationInMinutes, 1)
     let now = Date()
+    let pendingWait = SoftUnblockGrantStore.pendingWait(
+      for: resource,
+      profileId: session.profileId,
+      at: now
+    )
+
+    switch SoftUnblockWaitDecision.decide(
+      waitDuration: configuration.waitDurationInSeconds,
+      pendingWait: pendingWait,
+      remainingUnblockCount: session.remainingUnblockCount,
+      at: now
+    ) {
+    case .grant:
+      break
+    case .startWait:
+      let waitDuration = TimeInterval(configuration.waitDurationInSeconds)
+      SoftUnblockGrantStore.beginWait(
+        SoftUnblockWait(
+          id: UUID(),
+          sessionId: session.sessionId,
+          profileId: session.profileId,
+          resource: resource,
+          startedAt: now,
+          endsAt: now.addingTimeInterval(waitDuration),
+          expiresAt: now.addingTimeInterval(waitDuration + SoftUnblockWait.graceInterval)
+        )
+      )
+      completionHandler(.defer)
+      return
+    case .keepWaiting:
+      completionHandler(.defer)
+      return
+    case .close:
+      completionHandler(.close)
+      return
+    }
+
+    if let pendingWait {
+      SoftUnblockGrantStore.removeWait(id: pendingWait.id, sessionId: pendingWait.sessionId)
+    }
+
     let grant = SoftUnblockGrant(
       id: UUID(),
       sessionId: session.sessionId,

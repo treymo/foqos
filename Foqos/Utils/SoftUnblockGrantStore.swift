@@ -15,6 +15,7 @@ enum SoftUnblockGrantStore {
 
   private static let activeSessionKey = "softUnblock.activeSession"
   private static let grantKeyPrefix = "softUnblock.grant."
+  private static let waitKeyPrefix = "softUnblock.wait."
 
   static var activeSession: SoftUnblockSessionState? {
     currentSession(at: Date())
@@ -119,6 +120,47 @@ enum SoftUnblockGrantStore {
     activeGrants(for: profileId, at: date).contains { $0.resource == resource }
   }
 
+  @discardableResult
+  static func beginWait(_ wait: SoftUnblockWait) -> SoftUnblockWait {
+    guard let session = currentSession(at: wait.startedAt),
+      session.sessionId == wait.sessionId,
+      session.profileId == wait.profileId
+    else {
+      return wait
+    }
+
+    let sameResourceWaits = waits(for: wait.sessionId).filter { $0.resource == wait.resource }
+    if let pendingWait = sameResourceWaits.first(where: { !$0.isExpired(at: wait.startedAt) }) {
+      return pendingWait
+    }
+
+    for expiredWait in sameResourceWaits {
+      removeWait(id: expiredWait.id, sessionId: expiredWait.sessionId)
+    }
+
+    guard let data = try? JSONEncoder().encode(wait) else { return wait }
+    suite.set(data, forKey: waitKey(sessionId: wait.sessionId, waitId: wait.id))
+    return wait
+  }
+
+  static func pendingWait(
+    for resource: SoftUnblockResource,
+    profileId: UUID,
+    at date: Date = Date()
+  ) -> SoftUnblockWait? {
+    guard let activeSession = currentSession(at: date), activeSession.profileId == profileId else {
+      return nil
+    }
+
+    return waits(for: activeSession.sessionId).first {
+      $0.resource == resource && !$0.isExpired(at: date)
+    }
+  }
+
+  static func removeWait(id: UUID, sessionId: String) {
+    suite.removeObject(forKey: waitKey(sessionId: sessionId, waitId: id))
+  }
+
   static func removeGrant(id: UUID, sessionId: String) {
     suite.removeObject(forKey: grantKey(sessionId: sessionId, grantId: id))
   }
@@ -131,7 +173,8 @@ enum SoftUnblockGrantStore {
   }
 
   static func clearAll() {
-    for key in suite.dictionaryRepresentation().keys where key.hasPrefix(grantKeyPrefix) {
+    for key in suite.dictionaryRepresentation().keys
+    where key.hasPrefix(grantKeyPrefix) || key.hasPrefix(waitKeyPrefix) {
       suite.removeObject(forKey: key)
     }
     suite.removeObject(forKey: activeSessionKey)
@@ -179,9 +222,20 @@ enum SoftUnblockGrantStore {
     }
   }
 
+  private static func waits(for sessionId: String) -> [SoftUnblockWait] {
+    let prefix = waitSessionKeyPrefix(sessionId: sessionId)
+
+    return suite.dictionaryRepresentation().compactMap { key, value in
+      guard key.hasPrefix(prefix), let data = value as? Data else { return nil }
+      return try? JSONDecoder().decode(SoftUnblockWait.self, from: data)
+    }
+  }
+
   private static func removeGrants(for sessionId: String) {
-    let prefix = grantSessionKeyPrefix(sessionId: sessionId)
-    for key in suite.dictionaryRepresentation().keys where key.hasPrefix(prefix) {
+    let grantPrefix = grantSessionKeyPrefix(sessionId: sessionId)
+    let waitPrefix = waitSessionKeyPrefix(sessionId: sessionId)
+    for key in suite.dictionaryRepresentation().keys
+    where key.hasPrefix(grantPrefix) || key.hasPrefix(waitPrefix) {
       suite.removeObject(forKey: key)
     }
   }
@@ -192,6 +246,14 @@ enum SoftUnblockGrantStore {
 
   private static func grantKey(sessionId: String, grantId: UUID) -> String {
     "\(grantSessionKeyPrefix(sessionId: sessionId))\(grantId.uuidString)"
+  }
+
+  private static func waitSessionKeyPrefix(sessionId: String) -> String {
+    "\(waitKeyPrefix)\(sessionId)."
+  }
+
+  private static func waitKey(sessionId: String, waitId: UUID) -> String {
+    "\(waitSessionKeyPrefix(sessionId: sessionId))\(waitId.uuidString)"
   }
 
   private static func saveActiveSession(_ session: SoftUnblockSessionState) {
