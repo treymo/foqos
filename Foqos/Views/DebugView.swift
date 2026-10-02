@@ -38,6 +38,21 @@ struct DebugView: View {
             SoftUnblockDebugCard(diagnostics: makeSoftUnblockDiagnostics())
           }
 
+          DebugSection(title: "App Countdown") {
+            Button("Preview countdown screen") {
+              Task {
+                _ = await AppCountdownGate.shared.present(
+                  AppCountdownRequest(
+                    appName: "Messages",
+                    profileName: "Deep Work",
+                    countdownSeconds: 10
+                  ),
+                  decisionTimeout: .seconds(25)
+                )
+              }
+            }
+          }
+
           // Device Activities Section (always shown)
           DebugSection(title: "Device Activities (\(deviceActivities.count))") {
             DeviceActivitiesDebugCard(
