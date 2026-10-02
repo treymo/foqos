@@ -119,10 +119,14 @@ struct BlockedProfileStrategySection: View {
 }
 
 struct BlockedProfileAppsFields: View {
+  @EnvironmentObject private var themeManager: ThemeManager
+
   @ObservedObject var draft: BlockedProfileDraft
   @Binding var showingActivityPicker: Bool
   var disabled: Bool
   var showsSeparators: Bool = false
+
+  @State private var showingAppCountdownSetup = false
 
   var body: some View {
     BlockedProfileAppSelector(
@@ -143,6 +147,38 @@ struct BlockedProfileAppsFields: View {
       errorMessage: draft.selectedStrategySupportsAllowMode
         ? nil : "Allow-only mode isn't supported with Temporary Access."
     )
+
+    if #available(iOS 26.0, *) {
+      ProfileFieldDivider(isVisible: showsSeparators)
+
+      CustomToggle(
+        title: draft.enableAllowMode ? "Countdown for Allowed Apps" : "Countdown for Other Apps",
+        description: draft.enableAllowMode
+          ? "Only apps in this list stay open. This adds a short countdown to them, like Messages, while this profile is active."
+          : "Apps in this list get the shield. This adds a short countdown to apps you left open, like Messages, while this profile is active.",
+        isOn: $draft.enableAppCountdown,
+        isDisabled: disabled
+      )
+
+      if draft.enableAppCountdown {
+        ProfileFieldDivider(isVisible: showsSeparators)
+
+        Button {
+          showingAppCountdownSetup = true
+        } label: {
+          HStack {
+            Text("Set Up in Shortcuts")
+              .foregroundStyle(themeManager.themeColor)
+            Spacer()
+            Image(systemName: "chevron.right")
+              .foregroundStyle(.secondary)
+          }
+        }
+        .sheet(isPresented: $showingAppCountdownSetup) {
+          AppCountdownSetupView()
+        }
+      }
+    }
 
     ProfileFieldDivider(isVisible: showsSeparators)
 

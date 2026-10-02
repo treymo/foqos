@@ -21,6 +21,7 @@ final class BlockedProfileDraft: ObservableObject {
   @Published var enableMacSync: Bool
   @Published var disableBackgroundStops: Bool
   @Published var enableEmergencyUnblock: Bool
+  @Published var enableAppCountdown: Bool
   @Published var domains: [String]
   @Published var physicalUnblockItems: [PhysicalUnblockItem]
   @Published var schedule: BlockedProfileSchedule
@@ -61,6 +62,7 @@ final class BlockedProfileDraft: ObservableObject {
     enableReminder = profile?.reminderTimeInSeconds != nil
     disableBackgroundStops = profile?.disableBackgroundStops ?? false
     enableEmergencyUnblock = profile?.enableEmergencyUnblock ?? true
+    enableAppCountdown = profile?.enableAppCountdown ?? false
     reminderTimeInMinutes = Int(profile?.reminderTimeInSeconds ?? 900) / 60
     customReminderMessage = profile?.customReminderMessage ?? ""
     domains = profile?.domains ?? []
@@ -142,7 +144,8 @@ final class BlockedProfileDraft: ObservableObject {
         physicalUnblockItems: .some(physicalUnblockItemsToSave),
         schedule: schedule,
         disableBackgroundStops: disableBackgroundStops,
-        enableEmergencyUnblock: enableEmergencyUnblock
+        enableEmergencyUnblock: enableEmergencyUnblock,
+        enableAppCountdown: enableAppCountdown
       )
 
       DeviceActivityCenterUtil.scheduleTimerActivity(for: updatedProfile)
@@ -173,7 +176,8 @@ final class BlockedProfileDraft: ObservableObject {
       physicalUnblockItems: physicalUnblockItemsToSave,
       schedule: schedule,
       disableBackgroundStops: disableBackgroundStops,
-      enableEmergencyUnblock: enableEmergencyUnblock
+      enableEmergencyUnblock: enableEmergencyUnblock,
+      enableAppCountdown: enableAppCountdown
     )
 
     DeviceActivityCenterUtil.scheduleTimerActivity(for: newProfile)
