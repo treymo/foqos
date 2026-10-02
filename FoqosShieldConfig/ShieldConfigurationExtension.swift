@@ -103,10 +103,49 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
 
     let accessMinutes = configuration.accessDurationInMinutes
     let buttonText = "Open for \(accessMinutes)m"
+    let waitDurationInSeconds = configuration.waitDurationInSeconds
+    let now = Date()
+    let pendingWait =
+      waitDurationInSeconds > 0
+      ? SoftUnblockGrantStore.pendingWait(
+        for: presentation.resource,
+        profileId: session.profileId,
+        at: now
+      )
+      : nil
     let randomMessage = getFunBlockMessage(
       for: .app,
       title: application.localizedDisplayName ?? presentation.resourceName
     )
+    let pendingWaitSeconds =
+      pendingWait.map { Int($0.endsAt.timeIntervalSince($0.startedAt).rounded()) }
+      ?? waitDurationInSeconds
+    let iconEmoji: String
+    let title: String
+    let leadText: String
+    let primaryButtonText: String
+    if let pendingWait, pendingWait.isWaiting(at: now) {
+      iconEmoji = "⏳"
+      title = "Hold on"
+      leadText =
+        "\(presentation.resourceName) opens after a \(pendingWaitSeconds)s wait. "
+        + "About \(pendingWait.remainingSeconds(at: now))s to go. "
+        + "Tap Check again when it's up."
+      primaryButtonText = "Check again"
+    } else if pendingWait != nil {
+      iconEmoji = "🔓"
+      title = "Ready when you are"
+      leadText = "You waited \(pendingWaitSeconds)s. Still want \(presentation.resourceName)?"
+      primaryButtonText = buttonText
+    } else {
+      iconEmoji = randomMessage.emoji
+      title = randomMessage.title
+      leadText =
+        waitDurationInSeconds > 0
+        ? "\(randomMessage.subtitle) Opens after a \(waitDurationInSeconds)s wait."
+        : randomMessage.subtitle
+      primaryButtonText = buttonText
+    }
     var allowanceLines = [
       "\(presentation.resourceName) (\(session.remainingUnblockCount)/\(session.maximumUnblockCount))",
       breakAllowanceIndicator(for: session),
@@ -114,15 +153,15 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
     if let resetDescription = allowanceResetDescription(for: session) {
       allowanceLines.append(resetDescription)
     }
-    let subtitle = [randomMessage.subtitle, allowanceLines.joined(separator: "\n")]
+    let subtitle = [leadText, allowanceLines.joined(separator: "\n")]
       .joined(separator: "\n\n")
 
     return ShieldConfiguration(
       backgroundBlurStyle: .dark,
       backgroundColor: UIColor(ThemeManager.shared.themeColor),
-      icon: makeEmojiIcon(randomMessage.emoji, size: 96),
+      icon: makeEmojiIcon(iconEmoji, size: 96),
       title: ShieldConfiguration.Label(
-        text: randomMessage.title,
+        text: title,
         color: .white
       ),
       subtitle: ShieldConfiguration.Label(
@@ -130,7 +169,7 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
         color: UIColor.white.withAlphaComponent(0.88)
       ),
       primaryButtonLabel: ShieldConfiguration.Label(
-        text: buttonText,
+        text: primaryButtonText,
         color: .black
       ),
       primaryButtonBackgroundColor: .white,
