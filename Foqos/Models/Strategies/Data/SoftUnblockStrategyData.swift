@@ -9,10 +9,12 @@ struct SoftUnblockStrategyData: Codable, Equatable {
   static let unblockCountRange = SoftUnblockSessionState.maximumUnblockCountRange
   static let allowanceResetIntervalRangeInHours =
     SoftUnblockSessionState.allowanceResetIntervalRangeInHours
+  static let waitDurationRange = 0...60
 
   var accessDurationInMinutes: Int
   var maximumUnblockCount: Int
   var allowanceResetIntervalInHours: Int?
+  var waitDurationInSeconds: Int = 0
 
   static func decode(_ data: Data?) -> SoftUnblockStrategyData {
     guard let data,
@@ -44,7 +46,26 @@ struct SoftUnblockStrategyData: Codable, Equatable {
       ),
       allowanceResetIntervalInHours: allowanceResetIntervalInHours.flatMap { interval in
         Self.allowanceResetIntervalRangeInHours.contains(interval) ? interval : nil
-      }
+      },
+      waitDurationInSeconds: min(
+        max(waitDurationInSeconds, Self.waitDurationRange.lowerBound),
+        Self.waitDurationRange.upperBound
+      )
     )
+  }
+}
+
+extension SoftUnblockStrategyData {
+  // Synthesized decoding rejects JSON saved without waitDurationInSeconds.
+  init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    accessDurationInMinutes = try container.decode(Int.self, forKey: .accessDurationInMinutes)
+    maximumUnblockCount = try container.decode(Int.self, forKey: .maximumUnblockCount)
+    allowanceResetIntervalInHours = try container.decodeIfPresent(
+      Int.self,
+      forKey: .allowanceResetIntervalInHours
+    )
+    waitDurationInSeconds =
+      try container.decodeIfPresent(Int.self, forKey: .waitDurationInSeconds) ?? 0
   }
 }

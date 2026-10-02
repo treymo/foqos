@@ -29,6 +29,48 @@ struct SoftUnblockGrant: Codable, Equatable, Identifiable {
   }
 }
 
+struct SoftUnblockWait: Codable, Equatable, Identifiable {
+  static let graceInterval: TimeInterval = 60
+
+  let id: UUID
+  let sessionId: String
+  let profileId: UUID
+  let resource: SoftUnblockResource
+  let startedAt: Date
+  let endsAt: Date
+  let expiresAt: Date
+
+  func isWaiting(at date: Date) -> Bool {
+    date < endsAt
+  }
+
+  func isExpired(at date: Date) -> Bool {
+    date >= expiresAt || date < startedAt
+  }
+
+  func remainingSeconds(at date: Date) -> Int {
+    max(Int(ceil(endsAt.timeIntervalSince(date))), 1)
+  }
+}
+
+enum SoftUnblockWaitDecision: Equatable {
+  case grant, startWait, keepWaiting, close
+}
+
+extension SoftUnblockWaitDecision {
+  static func decide(
+    waitDuration: Int,
+    pendingWait: SoftUnblockWait?,
+    remainingUnblockCount: Int,
+    at now: Date
+  ) -> Self {
+    guard waitDuration > 0 else { return .grant }
+    guard remainingUnblockCount > 0 else { return .close }
+    guard let pendingWait, !pendingWait.isExpired(at: now) else { return .startWait }
+    return pendingWait.isWaiting(at: now) ? .keepWaiting : .grant
+  }
+}
+
 struct SoftUnblockSessionState: Codable, Equatable {
   static let maximumUnblockCountRange = 1...10
   static let allowanceResetIntervalRangeInHours = 1...24
