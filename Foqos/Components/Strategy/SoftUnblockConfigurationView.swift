@@ -12,6 +12,10 @@ struct SoftUnblockConfigurationView: View {
   @State private var accessDurationInMinutes: Int
   @State private var allowanceResetIntervalInHours: Int?
   @State private var lastAllowanceResetIntervalInHours: Int
+  @State private var waitDurationInSeconds: Int
+  @State private var lastWaitDurationInSeconds: Int
+
+  private static let defaultEnabledWaitDurationInSeconds = 15
 
   init(
     profileName: String,
@@ -33,6 +37,12 @@ struct SoftUnblockConfigurationView: View {
       initialValue: initialConfiguration.allowanceResetIntervalInHours
         ?? SoftUnblockStrategyData.defaultEnabledAllowanceResetIntervalInHours
     )
+    _waitDurationInSeconds = State(initialValue: initialConfiguration.waitDurationInSeconds)
+    _lastWaitDurationInSeconds = State(
+      initialValue: initialConfiguration.waitDurationInSeconds > 0
+        ? initialConfiguration.waitDurationInSeconds
+        : Self.defaultEnabledWaitDurationInSeconds
+    )
   }
 
   var body: some View {
@@ -44,9 +54,11 @@ struct SoftUnblockConfigurationView: View {
               Text("Temporary Access")
                 .font(.title2.bold())
 
-              Text("Choose how many times blocked apps can open, and for how long.")
-                .font(.callout)
-                .foregroundColor(.secondary)
+              Text(
+                "Choose how many times blocked apps can open, for how long, and whether to wait first."
+              )
+              .font(.callout)
+              .foregroundColor(.secondary)
             }
 
             VStack(alignment: .leading, spacing: 12) {
@@ -139,6 +151,46 @@ struct SoftUnblockConfigurationView: View {
                 .foregroundColor(.secondary)
               }
             }
+
+            VStack(alignment: .leading, spacing: 12) {
+              HStack {
+                Text("Wait Before Opening")
+                  .font(.headline)
+
+                Spacer()
+
+                Toggle("Wait Before Opening", isOn: waitEnabledBinding)
+                  .labelsHidden()
+                  .tint(themeManager.themeColor)
+              }
+
+              Text(waitDescription)
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+              if waitDurationInSeconds > 0 {
+                Text(formattedWaitDuration)
+                  .font(.system(size: 40, weight: .bold, design: .rounded))
+                  .contentTransition(.numericText())
+
+                Slider(
+                  value: waitDurationBinding,
+                  in: 5...60,
+                  step: 5
+                )
+                .tint(themeManager.themeColor)
+                .sensoryFeedback(.selection, trigger: waitDurationInSeconds)
+                .accessibilityValue(formattedWaitDuration)
+
+                HStack {
+                  Text("5s")
+                  Spacer()
+                  Text("60s")
+                }
+                .font(.caption2)
+                .foregroundColor(.secondary)
+              }
+            }
           }
           .padding(.horizontal, 24)
           .padding(.top, 24)
@@ -172,7 +224,8 @@ struct SoftUnblockConfigurationView: View {
         SoftUnblockStrategyData(
           accessDurationInMinutes: accessDurationInMinutes,
           maximumUnblockCount: maximumUnblockCount,
-          allowanceResetIntervalInHours: allowanceResetIntervalInHours
+          allowanceResetIntervalInHours: allowanceResetIntervalInHours,
+          waitDurationInSeconds: waitDurationInSeconds
         )
       )
       dismiss()
@@ -206,6 +259,26 @@ struct SoftUnblockConfigurationView: View {
     )
   }
 
+  private var waitEnabledBinding: Binding<Bool> {
+    Binding(
+      get: { waitDurationInSeconds > 0 },
+      set: { isEnabled in
+        waitDurationInSeconds = isEnabled ? lastWaitDurationInSeconds : 0
+      }
+    )
+  }
+
+  private var waitDurationBinding: Binding<Double> {
+    Binding(
+      get: { Double(waitDurationInSeconds) },
+      set: { value in
+        let duration = Int(value)
+        waitDurationInSeconds = duration
+        lastWaitDurationInSeconds = duration
+      }
+    )
+  }
+
   private var resetIntervalRange: ClosedRange<Double> {
     let range = SoftUnblockStrategyData.allowanceResetIntervalRangeInHours
     return Double(range.lowerBound)...Double(range.upperBound)
@@ -230,6 +303,19 @@ struct SoftUnblockConfigurationView: View {
     }
 
     return "You get all your opens back every \(allowanceResetIntervalInHours) hours."
+  }
+
+  private var formattedWaitDuration: String {
+    "\(waitDurationInSeconds) seconds"
+  }
+
+  private var waitDescription: String {
+    guard waitDurationInSeconds > 0 else {
+      return "Open blocked apps right away when you tap Open."
+    }
+
+    return "Each open starts a \(waitDurationInSeconds)-second wait; tap Check again on the shield "
+      + "when it's done. Applies to the apps this profile blocks."
   }
 }
 
