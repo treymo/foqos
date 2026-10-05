@@ -124,8 +124,12 @@ class ShieldActionExtension: ShieldActionDelegate {
         sessionId: grant.sessionId
       )
       log.error("Failed to schedule a soft-unblock grant: \(error.localizedDescription)")
+      completionHandler(.close)
+      return
     }
 
-    completionHandler(.close)
+    AppBlockerUtil().applySoftUnblockGrants(for: snapshot)
+    // .defer redraws the shield, and the shield was just lifted, so the app appears.
+    completionHandler(.defer)
   }
 }

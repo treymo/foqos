@@ -15,6 +15,22 @@ class AppBlockerUtil {
     )
   }
 
+  func applySoftUnblockGrants(for profile: SharedData.ProfileSnapshot) {
+    let activeGrants = SoftUnblockGrantStore.activeGrants(for: profile.id)
+    let unblockedApplicationTokens = Set(
+      activeGrants.compactMap(\.resource.applicationToken)
+    )
+    let unblockedCategoryTokens = Set(
+      activeGrants.compactMap(\.resource.categoryToken)
+    )
+
+    activateSoftUnblockRestrictions(
+      for: profile,
+      unblockedApplicationTokens: unblockedApplicationTokens,
+      unblockedCategoryTokens: unblockedCategoryTokens
+    )
+  }
+
   func activateSoftUnblockRestrictions(
     for profile: SharedData.ProfileSnapshot,
     unblockedApplicationTokens: Set<ApplicationToken>,
